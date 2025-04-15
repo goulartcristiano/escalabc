@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+{# Necessário para {% trans %} #}
+{% load l10n %}
+{# Para formatação de números/moeda, se necessário no futuro #}
+{% block title %}
+    Gerenciar Escala - {{ block.super }}
+{% endblock title %}
+{% block extra_head %}
+    <style>
+    /* Força layout fixo para colunas de largura igual */
+    .calendar-table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    /* Estilos para as células do calendário */
+    .calendar-table td{
+        vertical-align: top; /* Alinha conteúdo no topo */
+        height: 110px;       /* Altura mínima (ajuste se necessário) */
+        overflow: hidden;    /* Esconde conteúdo que transborda */
+        padding: 0.5rem; /* Adiciona um pouco de padding interno */
+    }
+
+    /* Estilos para elementos dentro da célula */
+    .day-number{
+        font-size: 0.9em;
+    }
+    .scale-info, .confirmed-tag{
+        font-size: 0.8em;
+        word-wrap: break-word; /* Quebra texto longo */
+    }
+
+    /* Ajuste fino para os botões de ícone */
+    .scale-actions .btn{
+        padding: 0.2rem 0.4rem; /* Padding pequeno para botões de ícone */
+        font-size: 0.8rem; /* Tamanho da fonte menor para ícones */
+    }
+    .scale-actions .d-grid{ /* Garante que o grid ocupe espaço */
+        min-height: 50px; /* Ajuste conforme necessário para alinhar com dias sem botões */
+    }
+    .scale-actions .btn i { /* Ajusta o tamanho do ícone dentro do botão */
+        font-size: 1rem;
+    }
+
+
+    /* Estilo para input readonly (usado no form.py) */
+    input.readonly-input{
+        background-color: #e9ecef; /* Cor de fundo cinza claro */
+        cursor: not-allowed;      /* Cursor indicando não permitido */
+    }
+    /* Estilo adicional para quando o Django adiciona "readonly" diretamente */
+    input[readonly].form-control {
+        background-color: #e9ecef;
+        cursor: not-allowed;
+    }
+
+
+    /* Garante que os botões do formulário tenham espaço quando lado a lado */
+    .form-buttons-column{
+        padding-top: 1.85rem; /* Ajuste este valor conforme necessário para alinhar com labels */
+    }
+     .form-buttons-column .btn{
+        margin-bottom: 0;
+    }
+    .form-buttons-column .btn:not(:last-child) {
+         margin-right: 0.5rem;
+    }
+
+    /* Em telas pequenas, remove o padding-top extra dos botões */
+    @media (max-width: 767.98px) {
+        .form-buttons-column{
+            padding-top: 0;
+            /* Garante que botões fiquem lado a lado se couberem */
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .calendar-table td {
+            height: auto; /* Altura automática em telas menores */
+            min-height: 90px;
+        }
+        /* Ajusta o cabeçalho do calendário em telas menores */
+        .calendar-header{
+            flex-direction: column; /* Empilha os elementos */
+        }
+        .calendar-title-group{
+            order: 1; /* Coloca o título no meio */
+            margin-bottom: 0.5rem;
+        }
+        .calendar-nav:first-of-type{
+            order: 0; /* Botão anterior primeiro */ 
+            margin-bottom: 0.5rem;
+        }
+        .calendar-nav:last-of-type {
+            order: 2; /* Botão próximo por último */
+        }
+        .remuneration-display {
+            display: block; /* Faz a remuneração ficar abaixo do título */
+            margin-left: 0;
+            margin-top: 0.25rem;
+        }
+    }
+
+    /* --- ESTILOS PARA REMUNERAÇÃO E CABEÇALHO --- */
+    .remuneration-display{
+        font-size: 1rem;
+        font-weight: 500;
+        color: #198754; /* Verde Bootstrap (success) */
+        margin-left: 15px;
+        vertical-align: middle;
+    }
+    .remuneration-display strong{
+        font-weight: 700;
+    }
+
+    .calendar-header{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+    .calendar-title-group{
+        text-align: center;
+        flex-grow: 1;
+        margin: 0.5rem 1rem;
+    }
+    .calendar-nav {
+        flex-shrink: 0;
+    }
+    /* --- FIM DOS ESTILOS --- */
+
+    </style>
+{% endblock extra_head %}
+{% block content %}
+    <h1 class="mb-4">Gerenciar Minha Escala</h1>
+    {# Mensagens serão exibidas aqui automaticamente pelo base.html com estilo Bootstrap #}
+    <p class="lead">Use o formulário abaixo para adicionar ou modificar a escala de um dia específico.</p>
+    {# --- Formulário Simples com Estilo Bootstrap --- #}
+    <form method="post"
+        action="{% url 'escala:gerenciar_escala' %}" {# Ação aponta para a própria view #}
+        class="mb-5">
+        {% csrf_token %}
+        <fieldset class="border p-3 rounded mb-4">
+            <legend class="float-none w-auto px-3">
+                {% if editing_mode %}
+                    {% trans "Editar Escala" %}
+                {% else %}
+                    {% trans "Adicionar/Modificar Dia" %}
+                {% endif %}
+            </legend>
+            {# --- Linha Única para Data, Turno e Botões --- #}
+            <div class="row">
+                {# --- Coluna 1: Campo Data (Renderizado pelo Django Form) --- #}
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.data.id_for_label }}" class="form-label">{{ form.data.label }}:</label>
+                    {# Renderiza o campo data do formulário #}
+                    {{ form.data }}
+                    {# Exibe a dica de readonly se estiver editando (definida no form.py) #}
+                    {% if editing_mode and form.data.field.widget.attrs.title %}
+                        <div class="form-text text-muted">{{ form.data.field.widget.attrs.title }}</div>
+                    {% endif %}
+                    {# Exibe erros específicos do campo data #}
+                    {% if form.data.errors %}<div class="invalid-feedback d-block">{{ form.data.errors|first }}</div>{% endif %}
+                </div>
+                {# --- Coluna 2: Campo Turno (Renderizado pelo Django Form) --- #}
+                <div class="col-md-3 mb-3">
+                    <label for="{{ form.turno.id_for_label }}" class="form-label">{{ form.turno.label }}:</label>
+                    {# Renderiza o campo turno do formulário (com choices limitadas) #}
+                    {{ form.turno }}
+                    {# Exibe erros específicos do campo turno #}
+                    {% if form.turno.errors %}<div class="invalid-feedback d-block">{{ form.turno.errors|first }}</div>{% endif %}
+                    {# Exibe ajuda se houver #}
+                    {% if form.turno.help_text %}<div class="form-text">{{ form.turno.help_text }}</div>{% endif %}
+                </div>
+                {# --- Coluna 3: Botões --- #}
+                <div class="col-md-3 mb-3 form-buttons-column d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">{% trans "Salvar Dia" %}</button>
+                    {% if editing_mode %}
+                        <a href="{% url 'escala:gerenciar_escala' %}?ano={{ current_year }}&mes={{ current_month }}"
+                           class="btn btn-secondary">{% trans "Cancelar Edição" %}</a>
+                    {% endif %}
+                </div>
+            </div>
+            {# --- FIM DA LINHA ÚNICA --- #}
+            {# Exibe erros não relacionados a campos específicos (non_field_errors) #}
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger mt-3">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                        <br>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </fieldset>
+    </form>
+    {# --- Exibição do Calendário com Estilo Bootstrap --- #}
+    <div class="calendar-container">
+        {# --- CABEÇALHO DO CALENDÁRIO --- #}
+        <div class="calendar-header">
+            <div class="calendar-nav">
+                {% if previous_month_url %}
+                    <a href="{{ previous_month_url }}"
+                       class="btn btn-sm btn-outline-primary">« {% trans "Anterior" %}</a>
+                {% endif %}
+            </div>
+            <div class="calendar-title-group">
+                <h2 class="mb-0 fs-4 d-inline">{{ current_date_obj|date:"F Y" }}</h2>
+                {% if total_remuneration is not None %}
+                    <span class="remuneration-display">
+                        {% trans "Remuneração:" %} <strong>R$ {{ total_remuneration|floatformat:2 }}</strong>
+                    </span>
+                {% endif %}
+            </div>
+            <div class="calendar-nav">
+                {% if next_month_url %}
+                    <a href="{{ next_month_url }}" class="btn btn-sm btn-outline-primary">{% trans "Próximo" %} »</a>
+                {% endif %}
+            </div>
+        </div>
+        {# --- FIM DO CABEÇALHO --- #}
+        {# Tabela do Calendário #}
+        <table class="table table-bordered calendar-table">
+            <thead class="table-light">
+                <tr>
+                    <th class="text-center">{% trans "Dom" %}</th>
+                    <th class="text-center">{% trans "Seg" %}</th>
+                    <th class="text-center">{% trans "Ter" %}</th>
+                    <th class="text-center">{% trans "Qua" %}</th>
+                    <th class="text-center">{% trans "Qui" %}</th>
+                    <th class="text-center">{% trans "Sex" %}</th>
+                    <th class="text-center">{% trans "Sáb" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for semana in calendar_weeks %}
+                    <tr>
+                        {% for dia_info in semana %}
+                            <td class="{% if not dia_info.is_current_month %}table-secondary text-muted{% else %}position-relative{% endif %}">
+                                {% if dia_info.numero_dia > 0 %}
+                                    <span class="fw-bold day-number d-block mb-1">{{ dia_info.numero_dia }}</span>
+                                    {% if dia_info.escala_obj %}
+                                        {# --- Exibe informações da escala existente --- #}
+                                        <span class="scale-info d-block mb-1">{{ dia_info.escala_obj.get_turno_display }}</span>
+                                        {% if dia_info.escala_obj.confirmado_admin %}
+                                            <span class="confirmed-tag d-block text-success fw-bold mb-1">({% trans "Confirmado" %})</span>
+                                        {% else %}
+                                            {# --- Botões "Editar" e "Excluir" (se não confirmado) --- #}
+                                            <div class="d-grid gap-1 scale-actions">
+                                                <a href="{% url 'escala:gerenciar_escala' %}?editar={{ dia_info.escala_obj.pk }}&ano={{ current_year }}&mes={{ current_month }}"
+                                                   class="btn btn-sm btn-warning"
+                                                   title="{% trans "Editar Escala" %}"
+                                                   aria-label="{% trans "Editar Escala" %}">
+                                                    <i class="bi bi-pencil-fill"></i>
+                                                </a>
+                                                <form method="post"
+                                                      action="{% url "escala:excluir_escala" dia_info.escala_obj.pk %}"
+                                                      class="m-0"
+                                                      onsubmit="return confirm('{% blocktrans %}Tem certeza que deseja excluir a escala para {{ dia_info.escala_obj.data|date:"d/m/Y" }}?{% endblocktrans %}');">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                    <button type="submit"
+                                                            class="btn btn-sm btn-danger w-100"
+                                                            title="{% trans "Excluir Escala" %}"
+                                                            aria-label="{% trans "Excluir Escala" %}">
+                                                        <i class="bi bi-trash-fill"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        {% endif %}
+                                    {% else %}
+                                        {# --- Botão "Adicionar" (+) se não houver escala --- #}
+                                        {% if dia_info.is_current_month %}
+                                            {% with dia_formatado=dia_info.numero_dia|stringformat:"02d" mes_formatado=current_month|stringformat:"02d" %}
+                                                {% with data_completa=current_year|stringformat:"s"|add:"-"|add:mes_formatado|add:"-"|add:dia_formatado %}
+                                                    <div class="scale-actions text-center mt-2">
+                                                        <a href="{% url "escala:gerenciar_escala" %}?data_selecionada={{ data_completa }}&ano={{ current_year }}&mes={{ current_month }}"
+                                                           class="btn btn-sm btn-success"
+                                                           title="{% blocktrans %}Adicionar Escala para {{ dia_info.numero_dia }}/{{ current_month }}/{{ current_year }}{% endblocktrans %}"
+                                                           aria-label="{% trans "Adicionar Escala" %}">
+                                                            <i class="bi bi-plus-circle-fill"></i>
+                                                        </a>
+                                                    </div>
+                                                {% endwith %}
+                                            {% endwith %}
+                                        {% endif %}
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if not calendar_weeks %}
+            <p class="alert alert-warning">{% trans "Não foi possível gerar o calendário. Verifique a view." %}</p>
+        {% endif %}
+    </div>
+{% endblock content %}
+{% block extra_body %}
+    {# --- SCRIPT PARA PERSISTIR O MÊS E SINCRONIZAR COM CALENDÁRIO --- #}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateInput = document.getElementById('{{ form.data.id_for_label }}'); // Usa o ID do form
+        const storageKey = 'escalaUltimoMesAno'; // Chave para o sessionStorage (formato YYYY-MM)
+        const editingMode = {{ editing_mode|yesno:"true,false" }};
+
+        const currentCalendarYear = {{ current_year|default:'null' }};
+        const currentCalendarMonth = {{ current_month|default:'null' }};
+
+        console.log("Gerenciar Escala JS: Iniciando.");
+        console.log(" - Modo Edição:", editingMode);
+        console.log(" - Calendário Exibido:", currentCalendarYear, "/", currentCalendarMonth);
+
+        function salvarMesAno(yearMonth) {
+            if (yearMonth && /^\d{4}-\d{2}$/.test(yearMonth)) {
+                sessionStorage.setItem(storageKey, yearMonth);
+                console.log(" - Mês/Ano salvo no sessionStorage:", yearMonth);
+            } else {
+                 console.warn(" - Tentativa de salvar formato inválido no sessionStorage:", yearMonth);
+            }
+        }
+
+        const mesAnoSalvoStorage = sessionStorage.getItem(storageKey);
+        const valorAtualInput = dateInput.value;
+
+        console.log(" - Mês/Ano no Storage:", mesAnoSalvoStorage);
+        console.log(" - Valor atual do input:", valorAtualInput);
+
+        let mesAnoParaUsar = null;
+
+        // PRIORIDADE 1: Input JÁ TEM valor (edição, erro de form, data_selecionada)
+        if (valorAtualInput) {
+            mesAnoParaUsar = valorAtualInput.substring(0, 7);
+            console.log(" - Input tem valor. Usando mês/ano do input:", mesAnoParaUsar);
+            salvarMesAno(mesAnoParaUsar);
+
+        // PRIORIDADE 2: Input VAZIO, NÃO edição, temos info do CALENDÁRIO
+        } else if (!editingMode && currentCalendarYear && currentCalendarMonth) {
+            const mesFormatado = String(currentCalendarMonth).padStart(2, '0');
+            mesAnoParaUsar = `${currentCalendarYear}-${mesFormatado}`;
+            const primeiroDiaDoMesCalendario = `${mesAnoParaUsar}-01`;
+            if (!dateInput.value) {
+                dateInput.value = primeiroDiaDoMesCalendario;
+                console.log(" - Input vazio, usando mês/ano do CALENDÁRIO:", mesAnoParaUsar);
+                console.log("   -> Definindo input para:", primeiroDiaDoMesCalendario);
+            } else {
+                 console.log(" - Input vazio, mas já preenchido. Mantendo valor existente.");
+            }
+            salvarMesAno(mesAnoParaUsar);
+
+        // PRIORIDADE 3: Input VAZIO, NÃO edição, SEM info calendário, MAS temos STORAGE
+        } else if (!editingMode && mesAnoSalvoStorage) {
+            mesAnoParaUsar = mesAnoSalvoStorage;
+            const primeiroDiaDoMesStorage = `${mesAnoParaUsar}-01`;
+            if (!dateInput.value) {
+                dateInput.value = primeiroDiaDoMesStorage;
+                console.log(" - Input vazio, usando mês/ano do STORAGE:", mesAnoParaUsar);
+                console.log("   -> Definindo input para:", primeiroDiaDoMesStorage);
+            } else {
+                 console.log(" - Input vazio, mas já preenchido. Mantendo valor existente.");
+            }
+
+        } else {
+             console.log(" - Input vazio e sem informações de mês/ano. Nenhuma ação.");
+        }
+
+        // Event listener para quando o usuário MUDA a data no input
+        dateInput.addEventListener('change', function() {
+            const novoValor = this.value;
+            console.log(" - Evento 'change' no input. Novo valor:", novoValor);
+            if (novoValor) {
+                const anoMesNovoValor = novoValor.substring(0, 7);
+                console.log("   -> Salvando mês/ano da seleção:", anoMesNovoValor);
+                salvarMesAno(anoMesNovoValor);
+            }
+        });
+
+        console.log("Gerenciar Escala JS: Fim da inicialização.");
+    });
+    </script>
+    {# --- FIM DO SCRIPT --- #}
+{% endblock extra_body %}

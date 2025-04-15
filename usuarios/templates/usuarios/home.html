@@ -1,0 +1,17 @@
+{% extends 'base.html' %} {# Diz ao Django para usar base.html como base #}
+
+{# Define o título específico desta página #}
+{% block title %}Home - {{ block.super }}{% endblock %} {# block.super inclui o título padrão #}
+
+{# Coloca o conteúdo principal dentro do bloco 'content' #}
+{% block content %}
+
+    {% if user.is_authenticated %}
+        <h1>SUA ESCALA</h1>
+    {% else %}
+        <p>Você não está logado.</p>
+        <p><a href="{% url 'login' %}">Fazer Login</a></p>
+    {% endif %}
+
+{% endblock %} {# Fim do bloco 'content' #}
+

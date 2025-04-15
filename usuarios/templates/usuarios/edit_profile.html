@@ -1,0 +1,278 @@
+{# templates/usuarios/edit_profile.html #}
+{% extends 'base.html' %}
+{% load static %} {# Carrega static se for usar placeholder de imagem estática #}
+
+{% block title %}Editar Perfil - {{ block.super }}{% endblock %}
+
+{% block extra_head %}
+{# Adiciona o CSS aqui se não colocou no base.html #}
+<style>
+/* Estilos para o container da foto de perfil e ícones */
+.profile-pic-container {
+    position: relative; /* Necessário para posicionar os ícones absolutamente */
+    display: inline-block; /* Para que o container se ajuste ao tamanho da imagem */
+    margin-bottom: 1rem; /* Espaçamento abaixo */
+}
+
+.profile-pic-display {
+    display: block;
+    width: 150px; /* Mantenha o tamanho consistente */
+    height: 150px;
+    object-fit: cover; /* Garante que a imagem cubra a área sem distorcer */
+    border-radius: 50%; /* Deixa a imagem redonda */
+    border: 3px solid #eee; /* Borda opcional */
+    background-color: #f8f9fa; /* Cor de fundo para placeholder */
+    color: #6c757d; /* Cor do ícone placeholder */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center; /* Para o texto do placeholder */
+}
+
+.profile-pic-placeholder i {
+    font-size: 4rem; /* Tamanho do ícone placeholder */
+}
+
+.profile-pic-overlay {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.4); /* Fundo semi-transparente */
+    color: white;
+    display: flex; /* Usa flexbox para alinhar os ícones */
+    justify-content: center; /* Centraliza os ícones horizontalmente */
+    gap: 15px; /* Espaço entre os ícones */
+    padding: 5px 0;
+    opacity: 0; /* Começa invisível */
+    transition: opacity 0.3s ease;
+    border-bottom-left-radius: 75px; /* Metade da largura/altura para acompanhar o border-radius 50% */
+    border-bottom-right-radius: 75px;
+}
+
+.profile-pic-container:hover .profile-pic-overlay {
+    opacity: 1; /* Mostra ao passar o mouse */
+}
+
+.profile-pic-overlay i {
+    cursor: pointer;
+    font-size: 1.1rem; /* Tamanho dos ícones */
+    padding: 5px;
+}
+.profile-pic-overlay i:hover {
+    color: #dee2e6; /* Cor ao passar o mouse */
+}
+
+/* Esconde o input de arquivo e o label/checkbox "Limpar" originais */
+.hidden-file-input {
+    display: none;
+}
+</style>
+{% endblock %}
+
+
+{% block content %}
+    <h2>Editar Perfil</h2>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="row g-4">
+            <div class="col-md-8">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>Dados Pessoais</h3>
+
+                        {# --- MODIFICAÇÃO: Área da Foto de Perfil --- #}
+                        <div class="mb-3 text-center"> 
+                            <div class="profile-pic-container">
+                                {# Exibe a foto atual ou um placeholder #}
+                                {% with foto_field=profile_form.foto %}
+                                    <div id="profilePicDisplay" class="profile-pic-display {% if not user.foto %}profile-pic-placeholder{% endif %}">
+                                        {% if user.foto %}
+                                            <img src="{{ user.foto.url }}" alt="Foto de Perfil" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                                        {% else %}
+                                            <i class="bi bi-person-fill"></i>
+                                            {# Ou imagem estática: <img src="{% static 'images/placeholder.png' %}" alt="Placeholder"> #}
+                                        {% endif %}
+                                    </div>
+                                    {# Overlay com ícones #}
+                                    <div class="profile-pic-overlay">
+                                        <i class="bi bi-pencil-square" id="editPicIcon" title="Alterar foto"></i>
+                                        {% if user.foto %} {# Só mostra excluir se houver foto #}
+                                        <i class="bi bi-trash" id="removePicIcon" title="Remover foto"></i>
+                                        {% endif %}
+                                    </div>
+                                    {# Input de arquivo escondido e o widget ClearableFileInput completo #}
+                                    <div class="hidden-file-input">
+                                        {{ foto_field }}
+                                        {% if foto_field.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ foto_field.errors|striptags }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                {% endwith %}
+                            </div>
+                        </div>
+                        {# --- FIM DA MODIFICAÇÃO --- #}
+
+
+                        {# Renderiza os outros campos do profile_form manualmente #}
+                        {% for field in profile_form %}
+                            {% if field.name != 'foto' %} {# Pula o campo foto que já foi tratado #}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                    {{ field }} {# Widget já estilizado pelo form #}
+                                    {% if field.help_text %}
+                                        <div class="form-text">{{ field.help_text }}</div>
+                                    {% endif %}
+                                    {% if field.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ field.errors|striptags }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    {# --- Coluna Interna 2: Alterar Senha (sem alterações) --- #}
+                    <div class="col-md-6">
+                        <h3>Alterar Senha <small class="text-muted">(opcional)</small></h3>
+                        <p class="text-muted small">Deixe os campos abaixo em branco se não quiser alterar sua senha.</p>
+                        {% for field in password_form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                {{ field }} {# Widget já estilizado #}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text|safe }}</div>
+                                {% endif %}
+                                {% if field.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ field.errors|striptags }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </div>
+
+            {# --- Coluna Principal Direita (Sidebar - sem alterações) --- #}
+            <div class="col-md-4">
+                <div class="card sticky-top" style="top: 20px;">
+                    <div class="card-body">
+                        <h5 class="card-title">Informações</h5>
+                        <p class="card-text">Mantenha seus dados sempre atualizados.</p>
+                        <hr>
+                        <dl>
+                            <dt>CPF</dt>
+                            <dd>{{ user.cpf_formatado|default:user.cpf }}</dd>
+                            <dt>Email</dt>
+                            <dd>{{ user.email }}</dd>
+                            {% if user.last_login %}
+                                <dt>Último login</dt>
+                                <dd><small>{{ user.last_login|date:"d/m/Y H:i" }}</small></dd>
+                            {% endif %}
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+{% endblock %}
+
+{% block extra_body %}
+{# --- ADIÇÃO DO JAVASCRIPT --- #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // IDs gerados pelo Django para o campo 'foto'
+    const fileInputId = '{{ profile_form.foto.id_for_label }}';
+    const clearCheckboxId = fileInputId + '-clear'; // Django anexa '-clear'
+
+    // Pega os elementos relevantes
+    const fileInput = document.getElementById(fileInputId);
+    const clearCheckbox = document.getElementById(clearCheckboxId);
+    const editIcon = document.getElementById('editPicIcon');
+    const removeIcon = document.getElementById('removePicIcon');
+    const picDisplay = document.getElementById('profilePicDisplay');
+    const placeholderIconHtml = '<i class="bi bi-person-fill"></i>'; // HTML do placeholder
+
+    // --- DEBUG ---
+    console.log("File Input ID:", fileInputId, "Element:", fileInput);
+    console.log("Clear Checkbox ID:", clearCheckboxId, "Element:", clearCheckbox);
+    console.log("Edit Icon:", editIcon);
+    console.log("Remove Icon:", removeIcon);
+    // Verifique no console do navegador se os elementos (exceto removeIcon se não houver foto) foram encontrados.
+    // Se algum for null, o ID está errado ou o elemento não existe no HTML.
+    // Verifique também o atributo 'name' do checkbox no console:
+    if(clearCheckbox) {
+        console.log("Clear Checkbox Name:", clearCheckbox.name); // Deve ser 'foto-clear' (ou 'prefix-foto-clear')
+    }
+    // --- FIM DEBUG ---
+
+
+    // Adiciona evento ao ícone de editar
+    if (editIcon && fileInput) {
+        editIcon.addEventListener('click', function() {
+            console.log("Edit icon clicked"); // DEBUG
+            fileInput.click(); // Abre a janela de seleção de arquivo
+        });
+    } else {
+        console.error("Edit icon or file input not found!");
+    }
+
+    // Adiciona evento ao ícone de remover (se existir)
+    if (removeIcon && clearCheckbox && fileInput) {
+        removeIcon.addEventListener('click', function() {
+            console.log("Remove icon clicked"); // DEBUG
+            clearCheckbox.checked = true; // Marca a caixa "limpar" escondida
+            fileInput.value = ''; // Limpa qualquer arquivo selecionado no input (importante!)
+            console.log("Clear checkbox checked:", clearCheckbox.checked); // DEBUG
+            // Atualiza a exibição para o placeholder
+            picDisplay.innerHTML = placeholderIconHtml;
+            picDisplay.classList.add('profile-pic-placeholder');
+            // Esconde o ícone de remover após clicar, pois não há mais foto
+            removeIcon.style.display = 'none';
+        });
+    } else if (document.getElementById('removePicIcon')) { // Só loga erro se o ícone deveria existir
+         console.error("Remove icon found, but clear checkbox or file input missing!");
+    }
+
+    // Adiciona evento ao input de arquivo para preview e desmarcar "limpar"
+    if (fileInput && clearCheckbox) {
+        fileInput.addEventListener('change', function(event) {
+            console.log("File input changed"); // DEBUG
+            if (event.target.files && event.target.files[0]) {
+                console.log("New file selected:", event.target.files[0].name); // DEBUG
+                clearCheckbox.checked = false; // Desmarca "limpar" se um novo arquivo for selecionado
+                console.log("Clear checkbox checked:", clearCheckbox.checked); // DEBUG
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    // Atualiza a exibição com a nova imagem
+                    picDisplay.innerHTML = `<img src="${e.target.result}" alt="Nova Foto de Perfil" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+                    picDisplay.classList.remove('profile-pic-placeholder');
+                    // Se o ícone de remover foi escondido antes, mostra novamente
+                    if (removeIcon) {
+                        removeIcon.style.display = 'inline-block'; // Ou 'block' dependendo do CSS
+                    }
+                }
+                reader.readAsDataURL(event.target.files[0]);
+            } else {
+                 console.log("File input cleared or no file selected."); // DEBUG
+            }
+        });
+    } else {
+        console.error("File input or clear checkbox not found for change event!");
+    }
+});
+</script>
+{# --- FIM DO JAVASCRIPT --- #}
+{% endblock %}

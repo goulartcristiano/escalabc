@@ -1,0 +1,22 @@
+{
+  // --- Configurações Gerais ---
+  "editor.formatOnSave": true, // Formatar ao salvar (muito útil!)
+
+  // --- Configurações Python (Black) ---
+  "python.formatting.provider": "black", // Define Black como formatador Python
+  // Opcional: Se o black não estiver no PATH padrão do VS Code
+  //"python.formatting.blackPath": "/home/cristiano/dev/python/escalabc/venv/bin/black",
+
+  // --- Configurações djLint para Templates ---
+  "[html]": {
+    // Aplica ao HTML padrão
+    "editor.defaultFormatter": "monosans.djlint"
+  },
+  "[django-html]": {
+    // Aplica especificamente a arquivos reconhecidos como Django HTML
+    "editor.defaultFormatter": "monosans.djlint"
+  },
+  "task.slowProviderWarning": true,
+  "black-formatter.importStrategy": "useBundled"
+ 
+}

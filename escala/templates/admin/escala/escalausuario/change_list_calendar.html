@@ -1,0 +1,204 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static %}
+{% load escala_extras %}
+{# Carrega o filtro get_item #}
+{% block title %}
+    {% if is_calendar_view %}
+        {{ title }} | {{ site_title|default:_("Django site admin") }}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock title %}
+{% block breadcrumbs %}
+    {% if is_calendar_view %}
+        <div class="breadcrumbs">
+            <a href='{% url "admin:index" %}'>{% translate "Home" %}</a>
+            » <a href="{{ list_view_url }}">{{ opts.verbose_name_plural|capfirst }}</a>
+            » {{ title }}
+        </div>
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock breadcrumbs %}
+{% block content %}
+    {% if is_calendar_view %}
+        {# Calendar Header and Navigation #}
+        <div id="content-main">
+            <h1>
+                <i class="fa fa-calendar" aria-hidden="true"></i> {{ title }} - {{ current_month }}/{{ current_year }}
+            </h1>
+            <div class="calendar-nav">
+                <a href="{{ list_view_url }}{{ prev_month_url_params }}" class="button">« Mês Anterior</a>
+                <a href="{{ list_view_url }}?view=calendar" class="button">Mês Atual</a>
+                <a href="{{ list_view_url }}{{ next_month_url_params }}" class="button">Próximo Mês »</a>
+                <a href="{{ list_view_url }}" class="button">Ver como Lista</a>
+            </div>
+            {# Grid do Calendário #}
+            <div class="calendar-grid-container">
+                {# Weekday Headers #}
+                <div class="calendar-header weekday-header">Dom</div>
+                <div class="calendar-header weekday-header">Seg</div>
+                <div class="calendar-header weekday-header">Ter</div>
+                <div class="calendar-header weekday-header">Qua</div>
+                <div class="calendar-header weekday-header">Qui</div>
+                <div class="calendar-header weekday-header">Sex</div>
+                <div class="calendar-header weekday-header">Sáb</div>
+                {# Dias do Mês #}
+                {% for day_date in month_days %}
+                    {% if day_date.month == current_month %}
+                        {# Célula para um dia do mês atual #}
+                        {% with day_data=escala_data_by_day|get_item:day_date %}
+                            {# DEBUG: Removido ou comentado após teste #}
+                            {# <p style="color: red; font-size: 0.8em;">DEBUG Dia {{ day_date|date:'d/m' }}: day_data existe? {% if day_data %}Sim{% else %}Não{% endif %}. {% if day_data %} Interessados: {{ day_data.interessados|length }} | Confirmados: {{ day_data.confirmados|length }} {% endif %}</p> #}
+                            <div class="calendar-day current-month"
+                                 data-date="{{ day_date|date:'Y-m-d' }}">
+                                <div class="day-number">{{ day_date.day }}</div>
+                                <div class="day-content">
+                                    {# Usuários Confirmados #}
+                                    {% if day_data and day_data.confirmados %}
+                                        <div class="scale-section confirmed-section">
+                                            <strong>Confirmados:</strong>
+                                            <ul>
+                                                {% for escala_item in day_data.confirmados %}
+                                                    <li>
+                                                        {{ escala_item.usuario.nome_completo|default:escala_item.usuario.email }} - {{ escala_item.get_turno_display }}
+                                                        <a href="{% url opts|admin_urlname:'editar_redirect' user_id=escala_item.usuario.pk date_str=day_date|date:'Y-m-d' %}"
+                                                           class="edit-scale-link"
+                                                           title="Editar Escala de {{ escala_item.usuario.nome_completo|default:escala_item.usuario.email }}">
+                                                            <i class="fa fa-pencil" aria-hidden="true"></i> (Editar)
+                                                        </a>
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                    {# Fim IF Confirmados #}
+                                    {# Usuários Interessados (Select + Botão Confirmar) #}
+                                    {% if day_data and day_data.interessados %}
+                                        <div class="scale-section interested-section">
+                                            <label for="user_select_{{ day_date|date:'Ymd' }}">Interessados:</label>
+                                            <select name="user_select"
+                                                    id="user_select_{{ day_date|date:'Ymd' }}"
+                                                    class="user-select-day">
+                                                <option value="">--- Selecione para confirmar ---</option>
+                                                {% for escala_item in day_data.interessados %}
+                                                    <option value="{{ escala_item.usuario.pk }}">
+                                                        {{ escala_item.usuario.nome_completo|default:escala_item.usuario.email }} - {{ escala_item.get_turno_display }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                            <button type="button" class="button confirm-scale-btn">Confirmar Selecionado</button>
+                                        </div>
+                                    {% endif %}
+                                    {# Fim IF Interessados #}
+                                    {# Mensagem "Ninguém na escala" #}
+                                    {% if not day_data or not day_data.confirmados and not day_data.interessados %}
+                                        <div class="no-users">Ninguém na escala.</div>
+                                    {% endif %}
+                                    {# Fim IF Ninguém #}
+                                    {# Seção para Adicionar Novo Usuário à Escala #}
+                                    <div class="scale-section add-scale-section">
+                                        <hr>
+                                        <label for="add_user_select_{{ day_date|date:'Ymd' }}">Adicionar à Escala:</label>
+                                        <select name="add_user_select"
+                                                id="add_user_select_{{ day_date|date:'Ymd' }}"
+                                                class="add-user-select">
+                                            <option value="">--- Selecione Usuário ---</option>
+                                            {# CORRIGIDO: Usa IFs aninhados para evitar erro de sintaxe #}
+                                            {% with confirmed_ids_set=confirmed_user_ids_by_day|get_item:day_date interested_ids_set=interested_user_ids_by_day|get_item:day_date %}
+                                                {% for user in all_eligible_users %}
+                                                    {% if not confirmed_ids_set or user.pk not in confirmed_ids_set %}
+                                                        {% if not interested_ids_set or user.pk not in interested_ids_set %}
+                                                            <option value="{{ user.pk }}">{{ user.nome_completo|default:user.email }}</option>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% endwith %}
+                                            {# Fim do with externo #}
+                                            {% if not all_eligible_users %}<option value="" disabled>Nenhum usuário elegível.</option>{% endif %}
+                                        </select>
+                                        <button type="button" class="button add-scale-btn">Adicionar Selecionado</button>
+                                    </div>
+                                    {# Fim add-scale-section #}
+                                </div>
+                                {# Fim day-content #}
+                            </div>
+                            {# Fim calendar-day #}
+                        {% endwith %}
+                        {# Fim with day_data #}
+                    {% else %}
+                        {# Célula para um dia fora do mês atual #}
+                        <div class="calendar-day other-month">
+                            <div class="day-number">{{ day_date.day }}</div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                {# Fim loop month_days #}
+            </div>
+            {# Fim calendar-grid #}
+        </div>
+        {# Fim content-main #}
+        {# Inclua o JavaScript necessário #}
+        <script id="calendar-urls" type="application/json">
+          {
+            "confirmUrl": "{% url opts|admin_urlname:'confirmar' %}",
+            "addUrl": "{% url opts|admin_urlname:'adicionar' %}"
+          }
+        </script>
+        <script src="{% static 'escala/js/admin_calendar_actions.js' %}"></script>
+    {% else %}
+        {# Renderiza a visualização de lista padrão do admin #}
+        {% if show_calendar_view_link %}
+            <a href="?view=calendar"
+               class="button calendar-view-button list-view-calendar-button">
+                <i class="fa fa-calendar" aria-hidden="true"></i> Ver como Calendário
+            </a>
+        {% endif %}
+        {{ block.super }} {# Renderiza o conteúdo original da change_list #}
+    {% endif %}
+{% endblock content %}
+{% block extrastyle %}
+    {{ block.super }}
+    {# Adicione CSS para estilizar o calendário #}
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <style>
+        .list-view-calendar-button { margin-bottom: 10px; display: inline-block; }
+
+        /* General Styles */
+        .calendar-nav { margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .calendar-grid-container { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background-color: #ccc; border: 1px solid #ccc; margin-top: 15px; }
+
+        
+        .calendar-header { background-color: #f0f0f0; font-weight: bold; text-align: center; padding: 8px 4px; }        
+        .calendar-day { background-color: #fff; padding: 5px; min-height: 200px; position: relative; display: flex; flex-direction: column; font-size: 0.9em; }        
+        .day-number { font-weight: bold; margin-bottom: 5px; text-align: right; padding-right: 5px; color: #555; }
+        .other-month { background-color: #f9f9f9; }
+        .other-month .day-number { color: #bbb; }
+        .current-month .day-number { color: #333; }
+        .day-content { flex-grow: 1; display: flex; flex-direction: column; }
+        /* Seções de Escala */
+        .scale-section { margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #eee; }
+        .scale-section:last-child { border-bottom: none; margin-bottom: 0; }        
+        .scale-section label, .scale-section strong { display: block; margin-bottom: 3px; font-weight: bold; color: #666; }
+        .scale-section ul { list-style: none; padding-left: 0; margin: 0; font-weight: normal; }
+        .scale-section li { margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; }
+        .calendar-day select { width: 100%; margin-bottom: 5px; padding: 4px; box-sizing: border-box; }
+        .calendar-day button { margin-top: 5px; margin-right: 5px; font-size: 0.85em; padding: 4px 8px; cursor: pointer; width: 100%; box-sizing: border-box; }
+        .add-scale-section { margin-top: auto; padding-top: 8px; }
+        .add-scale-section hr { border: none; margin: 8px 0; }
+        .no-users { color: #888; font-style: italic; margin-bottom: 10px;}
+        .edit-scale-link { font-size: 0.9em; margin-left: 5px; color: #007bff; text-decoration: none; }
+        .edit-scale-link:hover { text-decoration: underline; }
+        .edit-scale-link i { margin-right: 2px; }
+        .readonly-input { background-color: #eee; cursor: not-allowed; }
+        /* Section Colors */
+        .confirmed-section { background-color: #DDFFDD; }
+        .interested-section { background-color: #ffffb2; }
+        .add-scale-section { background-color: #d8e0e7; }
+        /* Estilos para Selects */
+        .add-user-select { max-height: 100px; overflow-y: auto; }        
+        
+
+    </style>
+{% endblock extrastyle %}
